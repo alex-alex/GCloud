@@ -12,7 +12,7 @@ import JSONWebToken
 
 internal let clientContentNegotiaton = ContentNegotiationMiddleware(types: JSONMediaType(), URLEncodedFormMediaType(), mode: .client)
 
-public final class Datastore {
+public final class Client {
 	internal var projectId: String
 	internal var keyFilename: String
 	internal var token: Header? = nil
@@ -25,17 +25,17 @@ public final class Datastore {
 
 // MARK: - Instance
 
-extension Datastore {
-	internal static var instance: Datastore? = nil
+extension Client {
+	internal static var instance: Client? = nil
 	
 	public static func setup(projectId: String, keyFilename: String) {
-		Datastore.instance = Datastore(projectId: projectId, keyFilename: keyFilename)
+		Client.instance = Client(projectId: projectId, keyFilename: keyFilename)
 	}
 }
 
 // MARK: - Error
 
-extension Datastore {
+extension Client {
 	public enum Error: ErrorProtocol {
 		case notInitialized
 		case invalidKeyFile
@@ -44,7 +44,7 @@ extension Datastore {
 
 // MARK: - Token
 
-extension Datastore {
+extension Client {
 	internal func getToken() throws -> Header {
 		if let token = token {
 			return token
@@ -58,8 +58,8 @@ extension Datastore {
 		let data = try file.readAllBytes()
 		let json = try JSONStructuredDataParser().parse(data)
 		
-		guard let keyStr = json["private_key"]?.stringValue else { throw Datastore.Error.invalidKeyFile }
-		let key = try SSLKey(string: keyStr)
+		guard let keyStr = json["private_key"]?.stringValue else { throw Client.Error.invalidKeyFile }
+		let key = try OpenSSL.Key(string: keyStr)
 		let algorithm = JSONWebToken.Algorithm.RS256(key: key)
 		
 		var payload = JSONWebToken.Payload()
@@ -83,11 +83,16 @@ extension Datastore {
 
 // MARK: - Request
 
-extension Datastore {
-	internal static func request(method: String, body: StructuredData) throws -> (response: Response, content: StructuredData) {
-		guard let datastore = Datastore.instance else { throw Error.notInitialized }
+extension Client {
+	internal static func request(method: String, body: StructuredData? = nil) throws -> (response: Response, content: StructuredData) {
+		guard let datastore = Client.instance else { throw Error.notInitialized }
 		let uri = "/v1beta3/projects/\(datastore.projectId):\(method)"
-		let bodyData = try JSONStructuredDataSerializer().serialize(body)
+		let bodyData: Data
+		if let body = body {
+			bodyData = try JSONStructuredDataSerializer().serialize(body)
+		} else {
+			bodyData = Data()
+		}
 		let client = try HTTPSClient.Client(uri: "https://datastore.googleapis.com:443")
 		let response = try client.post(uri, headers: ["Authorization": datastore.getToken()], body: bodyData, middleware: clientContentNegotiaton)
 		if response.status == .unauthorized {
@@ -103,7 +108,7 @@ extension Datastore {
 
 // MARK: - Allocate IDs
 
-extension Datastore {
+extension Client {
 	public static func allocateIds(_ keys: Key...) throws -> [Key] {
 		return try allocateIds(keys: keys)
 	}
@@ -116,13 +121,23 @@ extension Datastore {
 	}
 }
 
+// MARK: - Begin Transaction
+
+extension Client {
+	public static func beginTransaction() throws -> String {
+		return try request(method: "beginTransaction").content.get("transaction")
+	}
+}
+
 // MARK: - Commit
 
-extension Datastore {
+extension Client {
+	@discardableResult
 	public static func commit(transaction: String? = nil, _ mutations: Mutation...) throws -> (indexUpdates: Int, keys: [Key?]) {
 		return try commit(transaction: transaction, mutations: mutations)
 	}
 	
+	@discardableResult
 	public static func commit(transaction: String? = nil, mutations: [Mutation]) throws -> (indexUpdates: Int, keys: [Key?]) {
 		var body: StructuredData = [
 			"mutations": .infer(mutations.map({ $0.structuredData }))
@@ -136,7 +151,7 @@ extension Datastore {
 		}
 		
 		let (_, content) = try request(method: "commit", body: body)
-		let indexUpdates: Int = try content.get("indexUpdates")
+		let indexUpdates: Double = try content.get("indexUpdates")
 		
 		let mutationResults: [StructuredData] = try content.get("mutationResults")
 		let keys: [Key?] = try mutationResults.map { result in
@@ -147,6 +162,15 @@ extension Datastore {
 			}
 		}
 		
-		return (indexUpdates, keys)
+		return (Int(indexUpdates), keys)
+	}
+}
+
+// MARK: - Begin Transaction
+
+extension Client {
+	public static func rollback(transaction: String) throws {
+		let response = try request(method: "rollback", body: ["transaction": .infer(transaction)])
+		guard response.response.status == .ok else { throw ServerError.internalServerError }
 	}
 }

@@ -50,11 +50,11 @@ extension Entity {
 
 extension Entity {
 	public mutating func put() throws {
-		let result = try Datastore.commit(.upsert(self))
+		let result = try Client.commit(.upsert(self))
 		if let _key = result.keys.first, key = _key { self.key = key }
 	}
 	
 	public func remove() throws {
-		try Datastore.commit(.delete(key))
+		try Client.commit(.delete(key))
 	}
 }

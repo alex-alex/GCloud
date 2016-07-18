@@ -1,4 +1,4 @@
-# S2Geometry
+# Google Cloud Python Client
 
 [![Swift][swift-badge]][swift-url]
 [![Platform][platform-badge]][platform-url]

@@ -6,7 +6,7 @@
 //  Copyright © 2016 Alex Studnicka. MIT License.
 //
 
-import StructuredData
+import Core
 
 public protocol Entity: ValueConvertible {
 	static var kind: String { get }
@@ -30,19 +30,19 @@ extension Entity {
 // MARK: - Internal
 
 extension Entity {
-	internal var entityStructuredData: StructuredData {
-		var propertiesDict: [String: StructuredData] = [:]
+	internal func asEntityMap() throws -> Map {
+		var propertiesDict: [String: Map] = [:]
 		for (k, v) in properties {
-			var data = v.value.structuredData
+			var data = try v.value.asMap()
 			if excludeFromIndexes.contains(k) {
 				data["excludeFromIndexes"] = true
 			}
 			propertiesDict[k] = data
 		}
-		return .infer([
-			"key": key.structuredData,
-			"properties": .infer(propertiesDict),
-		])
+		return try [
+			"key": try key.asMap(),
+			"properties": try propertiesDict.asMap(),
+		].asMap()
 	}
 }
 
@@ -51,7 +51,7 @@ extension Entity {
 extension Entity {
 	public mutating func put() throws {
 		let result = try Client.commit(.upsert(self))
-		if let _key = result.keys.first, key = _key { self.key = key }
+		if let _key = result.keys.first, let key = _key { self.key = key }
 	}
 	
 	public func remove() throws {

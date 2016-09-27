@@ -6,7 +6,7 @@
 //  Copyright © 2016 Alex Studnicka. MIT License.
 //
 
-import StructuredData
+import Core
 
 public enum Mutation {
 	case insert(Entity)
@@ -15,19 +15,19 @@ public enum Mutation {
 	case delete(Key)
 }
 
-// MARK: - StructuredDataRepresentable
+// MARK: - MapFallibleRepresentable
 
-extension Mutation: StructuredDataRepresentable {
-	public var structuredData: StructuredData {
+extension Mutation: MapFallibleRepresentable {
+	public func asMap() throws -> Map {
 		switch self {
 		case .insert(let entity):
-			return ["insert": entity.entityStructuredData]
+			return ["insert": try entity.asEntityMap()]
 		case .update(let entity):
-			return ["update": entity.entityStructuredData]
+			return ["update": try entity.asEntityMap()]
 		case .upsert(let entity):
-			return ["upsert": entity.entityStructuredData]
+			return ["upsert": try entity.asEntityMap()]
 		case .delete(let key):
-			return ["delete": key.structuredData]
+			return ["delete": try key.asMap()]
 		}
 	}
 }

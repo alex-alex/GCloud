@@ -6,7 +6,7 @@
 //  Copyright © 2016 Alex Studnicka. MIT License.
 //
 
-import StructuredData
+import Core
 
 public struct LatLng {
 	public var latitude: Double
@@ -18,11 +18,11 @@ public struct LatLng {
 	}
 }
 
-// MARK: - StructuredDataRepresentable
+// MARK: - MapFallibleRepresentable
 
-extension LatLng: StructuredDataRepresentable {
-	public var structuredData: StructuredData {
-		return ["latitude": .infer(latitude), "longitude": .infer(longitude)]
+extension LatLng: MapFallibleRepresentable {
+	public func asMap() throws -> Map {
+		return try ["latitude": latitude.asMap(), "longitude": longitude.asMap()]
 	}
 }
 

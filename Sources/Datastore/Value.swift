@@ -6,7 +6,7 @@
 //  Copyright © 2016 Alex Studnicka. MIT License.
 //
 
-import StructuredData
+import Core
 
 public enum Value {
 	case null
@@ -24,16 +24,14 @@ public enum Value {
 
 // MARK: - Error
 
-extension Value {
-	public enum Error: ErrorProtocol {
-		case incompatibleType
-	}
+public enum ValueError: Error {
+	case incompatibleType
 }
 
 // MARK: - StructuredDataRepresentable
 
-extension Value: StructuredDataRepresentable {
-	public var structuredData: StructuredData {
+extension Value: MapFallibleRepresentable {
+	public func asMap() throws -> Map {
 		switch self {
 		case .null:
 			return ["nullValue": .null]
@@ -46,17 +44,17 @@ extension Value: StructuredDataRepresentable {
 		case .timestamp(let string):
 			return ["timestampValue": .string(string)]
 		case .key(let key):
-			return ["keyValue": key.structuredData]
+			return ["keyValue": try key.asMap()]
 		case .string(let string):
 			return ["stringValue": .string(string)]
 		case .blob(let string):
 			return ["blobValue": .string(string)]
 		case .geoPoint(let latLng):
-			return ["geoPointValue": latLng.structuredData]
+			return ["geoPointValue": try latLng.asMap()]
 		case .entity(let entity):
-			return ["entityValue": entity.entityStructuredData]
+			return ["entityValue": try entity.asEntityMap()]
 		case .array(let values):
-			return ["arrayValue": ["values": .infer(values.map({ $0.structuredData }))]]
+			return ["arrayValue": ["values": try values.map({ try $0.asMap() }).asMap()]]
 		}
 	}
 }
@@ -88,7 +86,7 @@ extension Value {
 			return value
 		default: break
 		}
-		throw Error.incompatibleType
+		throw ValueError.incompatibleType
 	}
 	
 	public func get<T>() -> T? {
@@ -98,13 +96,13 @@ extension Value {
 
 // MARK: - LiteralConvertibles
 
-extension Value: NilLiteralConvertible {
+extension Value: ExpressibleByNilLiteral {
 	public init(nilLiteral value: Void) {
 		self = .null
 	}
 }
 
-extension Value: ArrayLiteralConvertible {
+extension Value: ExpressibleByArrayLiteral {
 	public init(arrayLiteral elements: Value...) {
 		self = .array(elements)
 	}

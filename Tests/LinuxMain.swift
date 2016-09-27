@@ -1,9 +1,6 @@
-#if os(Linux)
-
 import XCTest
-@testable import GCloudTestSuite
+@testable import GCloudTests
 
 XCTMain([
   testCase(GCloudTests.allTests),
 ])
-#endif

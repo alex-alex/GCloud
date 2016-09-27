@@ -6,7 +6,7 @@
 //  Copyright © 2016 Alex Studnicka. MIT License.
 //
 
-import StructuredData
+import Core
 
 public indirect enum Key {
 	case empty(kind: String, namespace: String?, parent: Key?)
@@ -16,11 +16,8 @@ public indirect enum Key {
 
 // MARK: - Error
 
-extension Key {
-	public enum Error: ErrorProtocol {
-		case noPath
-		case noKind
-	}
+public enum KeyError: Error {
+	case noPath
 }
 
 // MARK: - Init
@@ -95,16 +92,16 @@ extension Key {
 // MARK: - Private
 
 extension Key {
-	private func makePath(array: inout [StructuredData]) {
+	fileprivate func makePath(array: inout [Map]) throws {
 		if let parent = parent {
-			parent.makePath(array: &array)
+			try parent.makePath(array: &array)
 		}
-		var path: StructuredData = ["kind": .infer(kind)]
+		var path: Map = ["kind": try kind.asMap()]
 		switch self {
 		case .id(let key):
-			path["id"] = .infer(String(key.id))
+			path["id"] = try String(key.id).asMap()
 		case .name(let key):
-			path["name"] = .infer(key.name)
+			path["name"] = try key.name.asMap()
 		case .empty:
 			break
 		}
@@ -112,46 +109,48 @@ extension Key {
 	}
 }
 
-// MARK: - StructuredDataConvertible
+// MARK: - MapConvertible
 
-extension Key: StructuredDataConvertible {
-	public init(structuredData: StructuredData) throws {
-		guard var path = structuredData["path"]?.arrayValue where path.count > 0 else { throw Error.noPath }
+extension Key: MapConvertible {
+	public init(map: Map) throws {
+		var path = try map["path"].asArray()
 		
-		let namespace = structuredData["partitionId"]?["namespaceId"]?.stringValue
+		guard path.count > 0 else { throw KeyError.noPath }
+		
+		let namespace = try map["partitionId"]["namespaceId"].asString()
 		
 		let pathEl = path.removeLast()
-		guard let kind = pathEl["kind"]?.stringValue else { throw Error.noKind }
+		let kind = try pathEl["kind"].asString()
 		
 		let parent: Key?
 		do {
-			var structuredData = structuredData
-			structuredData["path"] = .infer(path)
-			parent = try Key(structuredData: structuredData)
-		} catch let error as Error where error == .noPath {
+			var map = map
+			map["path"] = try path.asMap()
+			parent = try Key(map: map)
+		} catch let error as KeyError where error == .noPath {
 			parent = nil
 		}
 		
-		if let idStr = pathEl["id"]?.stringValue, id = Int64(idStr) {
+		if let idStr = try? pathEl["id"].asString(), let id = Int64(idStr) {
 			self = .id(id: id, kind: kind, namespace: namespace, parent: parent)
-		} else if let name = pathEl["name"]?.stringValue {
+		} else if let name = try? pathEl["name"].asString() {
 			self = .name(name: name, kind: kind, namespace: namespace, parent: parent)
 		} else {
 			self = .empty(kind: kind, namespace: namespace, parent: parent)
 		}
 	}
 	
-	public var structuredData: StructuredData {
-		var path: [StructuredData] = []
-		makePath(array: &path)
+	public func asMap() throws -> Map {
+		var path: [Map] = []
+		try makePath(array: &path)
 		
-		var data: StructuredData = [
-		                           	"path": .infer(path)
+		var data: Map = [
+			"path": try path.asMap()
 		]
 		
 		if let namespace = namespace {
 			data["partitionId"] = [
-			                      	"namespaceId": .infer(namespace)
+				"namespaceId": try namespace.asMap()
 			]
 		}
 		

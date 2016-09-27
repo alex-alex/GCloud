@@ -30,5 +30,5 @@ This project is released under the MIT license. See [LICENSE](LICENSE) for detai
 [mit-url]: https://tldrlegal.com/license/mit-license
 [travis-badge]: https://travis-ci.org/alex-alex/GCloud.svg?branch=master
 [travis-url]: https://travis-ci.org/alex-alex/GCloud
-[codebeat-badge]: https://codebeat.co/badges/e810900c-b5ff-4480-b66a-06068bff979d
+[codebeat-badge]: https://codebeat.co/badges/044d17d1-c95b-4d93-bf6a-a70bb35dcbdd
 [codebeat-url]: https://codebeat.co/projects/github-com-alex-alex-gcloud
